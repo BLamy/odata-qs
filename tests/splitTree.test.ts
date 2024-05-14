@@ -142,5 +142,21 @@ describe("parses examples", () => {
       },
     ])
   })
+
+  test(`Name in ['Jacob', 'John'] and Age in [30, 40]`, (test) => {
+    const tree = deserialize(test.task.name)
+    expect(splitTree(tree, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "in",
+        value: ["Jacob", "John"],
+      },
+      {
+        subject: "Age",
+        operator: "in",
+        value: [30, 40],
+      },
+    ])
+  })
 })
 

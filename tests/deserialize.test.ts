@@ -140,4 +140,12 @@ describe("parses examples", () => {
       value: "aco",
     })
   })
+  
+  test(`Name in ['Jacob', 'John']`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: "Name",
+      operator: "in",
+      value: ["Jacob", "John"],
+    })
+  })
 })
