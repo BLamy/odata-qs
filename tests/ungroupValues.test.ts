@@ -169,4 +169,58 @@ describe("parses examples", () => {
       },
     ])
   })
+
+  test(`Name startsWith 'Jac'`, () => {
+    const groupedValues: Array<GroupedExpression> = [
+      {
+        subject: "Name",
+        operator: "startsWith",
+        values: ["Jac"],
+      },
+    ]
+
+    expect(ungroupValues(groupedValues, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "startsWith",
+        value: "Jac",
+      },
+    ])
+  })
+
+  test(`Name endsWith 'ob'`, () => {
+    const groupedValues: Array<GroupedExpression> = [
+      {
+        subject: "Name",
+        operator: "endsWith",
+        values: ["ob"],
+      },
+    ]
+
+    expect(ungroupValues(groupedValues, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "endsWith",
+        value: "ob",
+      },
+    ])
+  })
+
+  test(`Name contains 'aco'`, () => {
+    const groupedValues: Array<GroupedExpression> = [
+      {
+        subject: "Name",
+        operator: "contains",
+        values: ["aco"],
+      },
+    ]
+
+    expect(ungroupValues(groupedValues, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "contains",
+        value: "aco",
+      },
+    ])
+  })
 })

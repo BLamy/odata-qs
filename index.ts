@@ -10,8 +10,8 @@ export type Expression = {
     values: Exclude<ReturnType<typeof deserializeValue>, Expression>[];
   };
   
-  export type LogicalOperator = 'and' | 'or';
-  export type ComparisonOperator = 'eq' | 'gt' | 'lt' | 'ge' | 'le' | 'ne';
+  export type LogicalOperator = 'and' | 'or' | 'not';
+  export type ComparisonOperator = 'eq' | 'gt' | 'lt' | 'ge' | 'le' | 'ne' | 'contains' | 'startsWith' | 'endsWith';
   export type Operator = LogicalOperator | ComparisonOperator;
   
   export function deserialize(input: string | null): Expression | null {
@@ -97,9 +97,20 @@ export type Expression = {
           value: parseFragment(groups.right),
         }
       }
+
+      const matchNot = input.match(/^not (?<expression>.*)$/)
+      if (matchNot) {
+        const groups = matchNot.groups
+
+        return {
+          subject: parseFragment(groups.expression),
+          operator: "not",
+          value: null,
+        }
+      }
   
       const matchOp = input.match(
-        /(?<subject>\w*) (?<operator>eq|gt|lt|ge|le|ne) (?<value>datetimeoffset'(.*)'|'(.*)'|[0-9]*)/
+        /(?<subject>\w*) (?<operator>eq|gt|lt|ge|le|ne|contains|startsWith|endsWith) (?<value>datetimeoffset'(.*)'|'(.*)'|[0-9]*)/
       )
       if (matchOp) {
         const groups = matchOp.groups
@@ -225,8 +236,8 @@ export type Expression = {
       return joinTree(expressions, operator)
     })
   }
-  const logicalOperators: LogicalOperator[] = ["and", "or"]
-  const comparisonOperators: ComparisonOperator[] = ["eq", "gt", "ge", "lt", "le", "ne"]
+  const logicalOperators: LogicalOperator[] = ["and", "or", "not"]
+  const comparisonOperators: ComparisonOperator[] = ["eq", "gt", "ge", "lt", "le", "ne", "contains", "startsWith", "endsWith"]
   
   export function isLogical(op: string): op is LogicalOperator {
     return (logicalOperators as string[]).includes(op);
@@ -267,8 +278,12 @@ export type Expression = {
         ? expression.subject
         : cleanSerialize(expression.subject)
   
-    if (!expression.value) {
+    if (!expression.value && expression.operator !== "not") {
       throw new Error("Invalid expression value")
+    }
+  
+    if (expression.operator === "not") {
+      return `not ${serialize(expression.subject as Expression)}`
     }
   
     if (typeof expression.value === "string") {

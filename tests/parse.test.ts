@@ -67,4 +67,18 @@ describe("parses examples", () => {
       },
     })
   })
+
+  // test(`Name in ['Jacob', 'John']`, (test) => {
+  //   const tree = parse(test.task.name)
+  //   expect(tree).toEqual({
+  //     Name: {
+  //       in: {
+  //         operator: "in",
+  //         subject: "Name",
+  //         values: ["Jacob", "John"],
+  //       },
+  //     },
+  //   })
+  // })
 })
+

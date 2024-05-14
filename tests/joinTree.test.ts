@@ -120,4 +120,92 @@ describe("parses examples", () => {
       },
     })
   })
+
+  test(`not (Name eq 'Jacob')`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: {
+          subject: "Name",
+          operator: "eq",
+          value: "Jacob",
+        },
+        operator: "not",
+        value: null,
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: {
+        subject: "Name",
+        operator: "eq",
+        value: "Jacob",
+      },
+      operator: "not",
+      value: null,
+    })
+  })
+
+  test(`Name startsWith 'Jac'`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "startsWith",
+        value: "Jac",
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "startsWith",
+      value: "Jac",
+    })
+  })
+
+  test(`Name endsWith 'ob'`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "endsWith",
+        value: "ob",
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "endsWith",
+      value: "ob",
+    })
+  })
+
+  test(`Name contains 'aco'`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "contains",
+        value: "aco",
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "contains",
+      value: "aco",
+    })
+  })
+
+  // test(`Name in ['Jacob', 'John']`, () => {
+  //   const split: Array<Expression> = [
+  //     {
+  //       subject: "Name",
+  //       operator: "in",
+  //       value: ["Jacob", "John"],
+  //     },
+  //   ];
+
+  //   expect(joinTree(split, "and")).toEqual({
+  //     subject: "Name",
+  //     operator: "in",
+  //     value: ["Jacob", "John"],
+  //   });
+  // });
 })

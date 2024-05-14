@@ -94,4 +94,53 @@ describe("parses examples", () => {
       },
     ])
   })
+
+  test(`not (Name eq 'Jacob')`, (test) => {
+    const tree = deserialize(test.task.name)
+    expect(splitTree(tree, "and")).toEqual([
+      {
+        subject: {
+          subject: "Name",
+          operator: "eq",
+          value: "Jacob",
+        },
+        operator: "not",
+        value: null,
+      },
+    ])
+  })
+
+  test(`Name startsWith 'Jac'`, (test) => {
+    const tree = deserialize(test.task.name)
+    expect(splitTree(tree, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "startsWith",
+        value: "Jac",
+      },
+    ])
+  })
+
+  test(`Name endsWith 'ob'`, (test) => {
+    const tree = deserialize(test.task.name)
+    expect(splitTree(tree, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "endsWith",
+        value: "ob",
+      },
+    ])
+  })
+
+  test(`Name contains 'aco'`, (test) => {
+    const tree = deserialize(test.task.name)
+    expect(splitTree(tree, "and")).toEqual([
+      {
+        subject: "Name",
+        operator: "contains",
+        value: "aco",
+      },
+    ])
+  })
 })
+

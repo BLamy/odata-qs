@@ -8,6 +8,10 @@ describe("parses examples", () => {
     `Name eq 'Jacob' and (Age eq 30 or Age eq 40)`,
     `Name eq 'Jacob' and ((Age eq 30 or Age eq 40) and (Name eq 'John' or Name eq 'Jacob'))`,
     `(Name eq 'Jacob' and Age eq 30) or ((Age eq 40 and Name eq 'John') or Name eq 'Jacob')`,
+    `not Name eq 'Jacob'`,
+    `Name startsWith 'Jac'`,
+    `Name endsWith 'ob'`,
+    `Name contains 'aco'`,
   ])("%s", (test) => {
     expect(serialize(deserialize(test)!)).toEqual(test)
   })

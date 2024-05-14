@@ -96,4 +96,48 @@ describe("parses examples", () => {
       },
     })
   })
+
+  test(`not (Name eq 'Jacob')`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: {
+        subject: "Name",
+        operator: "eq",
+        value: "Jacob",
+      },
+      operator: "not",
+      value: null,
+    })
+  })
+
+  test(`Name contains 'Jac'`, () => {
+    expect(deserialize("Name contains 'Jac'")).toEqual({
+      subject: "Name",
+      operator: "contains",
+      value: "Jac",
+    })
+  })
+
+  test(`Name startsWith 'Jac'`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: "Name",
+      operator: "startsWith",
+      value: "Jac",
+    })
+  })
+
+  test(`Name endsWith 'ob'`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: "Name",
+      operator: "endsWith",
+      value: "ob",
+    })
+  })
+
+  test(`Name contains 'aco'`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: "Name",
+      operator: "contains",
+      value: "aco",
+    })
+  })
 })

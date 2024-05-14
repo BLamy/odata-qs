@@ -64,4 +64,41 @@ describe("parses examples", () => {
       },
     ])
   })
+
+  test(`Name startsWith 'Jac'`, (test) => {
+    const tree = deserialize(test.task.name)
+    const split = splitTree(tree, "and")
+    expect(getValuesFromMap(getMap(split))).toEqual([
+      {
+        subject: "Name",
+        operator: "startsWith",
+        values: ["Jac"],
+      },
+    ])
+  })
+
+  test(`Name endsWith 'ob'`, (test) => {
+    const tree = deserialize(test.task.name)
+    const split = splitTree(tree, "and")
+    expect(getValuesFromMap(getMap(split))).toEqual([
+      {
+        subject: "Name",
+        operator: "endsWith",
+        values: ["ob"],
+      },
+    ])
+  })
+
+  test(`Name contains 'aco'`, (test) => {
+    const tree = deserialize(test.task.name)
+    const split = splitTree(tree, "and")
+    expect(getValuesFromMap(getMap(split))).toEqual([
+      {
+        subject: "Name",
+        operator: "contains",
+        values: ["aco"],
+      },
+    ])
+  })
 })
+
