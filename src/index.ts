@@ -90,7 +90,7 @@ export function deserialize(input: string | null): Expression | null {
     }
 
     const matchAnd = input.match(/^(?<left>.*?) and (?<right>.*)$/);
-    if (matchAnd) {
+    if (matchAnd && matchAnd.groups) {
       const groups = matchAnd.groups;
 
       return {
@@ -101,7 +101,7 @@ export function deserialize(input: string | null): Expression | null {
     }
 
     const matchOr = input.match(/^(?<left>.*?) or (?<right>.*)$/);
-    if (matchOr) {
+    if (matchOr && matchOr.groups) {
       const groups = matchOr.groups;
 
       return {
@@ -112,7 +112,7 @@ export function deserialize(input: string | null): Expression | null {
     }
 
     const matchNot = input.match(/^not (?<expression>.*)$/);
-    if (matchNot) {
+    if (matchNot && matchNot.groups) {
       const groups = matchNot.groups;
 
       return {
@@ -125,7 +125,7 @@ export function deserialize(input: string | null): Expression | null {
     const matchOp = input.match(
       /(?<subject>\w*) (?<operator>eq|gt|lt|ge|le|ne|contains|startsWith|endsWith|in) (?<value>datetimeoffset'(.*)'|\[(.*)\]|'(.*)'|[0-9]*)/
     );
-    if (matchOp) {
+    if (matchOp && matchOp.groups) {
       const groups = matchOp.groups;
       const operator = groups.operator;
       if (!isComparison(operator)) {
@@ -215,15 +215,15 @@ export function getMap<T extends string>(
           subject:
             typeof expression.subject === "string"
               ? expression.subject
-              : expression.subject.subject,
-          operator: (expression.subject as Expression).operator,
+              : (expression.subject as Expression).subject,
+          operator: (expression.subject as Expression).operator as ComparisonOperator,
           values: expressions.map((e) => e.value),
         };
       }
 
       return {
         subject: expression.subject,
-        operator: expression.operator,
+        operator: expression.operator as ComparisonOperator,
         values: Array.isArray(expression.value)
           ? expression.value
           : [expression.value],
@@ -237,20 +237,20 @@ export function getMap<T extends string>(
       }
 
       if (!acc[subject]) {
-        acc[subject] = {};
+        acc[subject] = {} as Partial<Record<ComparisonOperator, GroupedExpression>>;
       }
 
-      if (!acc[subject][cur.operator]) {
-        acc[subject][cur.operator] = {
-          subject: subject,
-          operator: cur.operator,
-          values: cur.values,
-        };
-      } else {
-        acc[subject][cur.operator].values = Array.from(
-          new Set(acc[subject][cur.operator].values.concat(cur.values))
-        );
+      const operatorGroup = acc?.[subject]?.[cur.operator] ?? {
+        subject: subject,
+        operator: cur.operator,
+        values: [],
       }
+
+      operatorGroup.values = Array.from(
+        new Set(operatorGroup.values.concat(cur.values as (string | number | boolean | Date | null)[]))
+      );
+
+      acc[subject]![cur.operator] = operatorGroup;
 
       return acc;
     }, {} as Partial<Record<T, Partial<Record<ComparisonOperator, GroupedExpression>>>>);
@@ -261,8 +261,11 @@ export function getValuesFromMap(
   >
 ): GroupedExpression[] {
   return Object.values(tree).reduce((acc, cur) => {
-    return acc.concat(Object.values(cur));
-  }, []);
+    if (cur) {
+      return acc.concat(Object.values(cur));
+    }
+    return acc;
+  }, [] as GroupedExpression[]);
 }
 
 export function ungroupValues(
@@ -311,6 +314,7 @@ export function parse<T extends string>(
   if (!query) return {};
 
   const deserialized = deserialize(query);
+  if (!deserialized) return {};
 
   const operator = isLogical(deserialized.operator)
     ? deserialized.operator
@@ -370,9 +374,7 @@ export function serialize(expression: Expression): string {
     } '${expression.value.toISOString()}'`;
   }
 
-  return `${subject} ${expression.operator} ${cleanSerialize(
-    expression.value
-  )}`;
+  return `${subject} ${expression.operator} ${expression.value ? cleanSerialize(expression.value) : ''}`;
 
   function cleanSerialize(expression: Expression): string {
     return isLogical(expression.operator)
@@ -392,7 +394,9 @@ export function splitTree(
         ? []
         : splitTree(expression.subject, operator);
     const valueExpressions =
-      typeof expression.value === "object" && "operator" in expression.value
+      typeof expression.value === "object" &&
+      expression.value !== null &&
+      "operator" in expression.value
         ? splitTree(expression.value, operator)
         : [];
     return [...subjectExpressions, ...valueExpressions];

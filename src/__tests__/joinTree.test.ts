@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest"
-import { Expression, joinTree } from "../"
+import { Expression, joinTree } from ".."
 
 describe("parses examples", () => {
   test(`Name eq 'Jacob'`, () => {

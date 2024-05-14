@@ -1,18 +1,18 @@
 {
-  "include": ["index.ts"],
+  "include": ["src/*.ts"], // Adjust the path as needed to include all your source files
   "compilerOptions": {
     "lib": ["es2018"],
-
-    // Tells TypeScript to read JS files, as
-    // normally they are ignored as source files
     "allowJs": true,
-    // Generate d.ts files
     "declaration": true,
-    // This compiler run should
-    // only output d.ts files
-    "emitDeclarationOnly": true,
-    // go to js file when using IDE functions like
-    // "Go to Definition" in VSCode
-    "declarationMap": true
+    "declarationMap": true,
+    "outDir": "dist", // Output directory for compiled files
+    "rootDir": "src", // Root directory of input files
+    "strict": true, // Enable all strict type-checking options
+    "module": "ESNext", // Use ESNext module system
+    "moduleResolution": "node", // Use Node.js module resolution
+    "target": "ES2018", // Target ECMAScript version
+    "esModuleInterop": true, // Enable interoperability between CommonJS and ES Modules
+    "skipLibCheck": true, // Skip type checking of declaration files
+    "forceConsistentCasingInFileNames": true // Ensure consistent casing in file names
   }
 }

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest"
-import { deserialize, getMap, getValuesFromMap, splitTree } from "../"
+import { deserialize, getMap, getValuesFromMap, splitTree } from ".."
 
 describe("parses examples", () => {
   test(`Name eq 'Jacob' and Age eq 30`, (test) => {
