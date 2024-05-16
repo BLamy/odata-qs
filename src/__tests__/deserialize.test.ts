@@ -148,4 +148,12 @@ describe("parses examples", () => {
       value: ["Jacob", "John"],
     })
   })
+
+  test (`title eq '1:1 Meeting between Alex Johnson and Pat Lee'`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
+      subject: "title",
+      operator: "eq",
+      value: "1:1 Meeting between Alex Johnson and Pat Lee",
+    })
+  })
 })

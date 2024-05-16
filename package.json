@@ -1,12 +1,13 @@
 {
   "name": "odata-querystring",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "description": "An OData compliant querystring parser",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "test": "vitest",
-    "build": "tsc"
+    "build": "tsc",
+    "release": "npm run build && npm publish"
   },
   "exports": {
     ".": "./dist/index.js"

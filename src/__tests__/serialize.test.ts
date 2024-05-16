@@ -12,6 +12,12 @@ describe("parses examples", () => {
     `Name startsWith 'Jac'`,
     `Name endsWith 'ob'`,
     `Name contains 'aco'`,
+    `title eq '1:1 Meeting between Alex Johnson and Pat Lee'`,
+    `title eq '1:1 Meeting between Alex Johnson or Pat Lee'`,
+    `title eq '1:1 Meeting between Alex Johnson contains Pat Lee'`,
+    `title startsWith '1:1 Meeting'`,
+    `title endsWith 'Meeting'`,
+    `title contains '1:1'`,
   ])("%s", (test) => {
     expect(serialize(deserialize(test)!)).toEqual(test)
   })

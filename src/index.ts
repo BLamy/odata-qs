@@ -9,7 +9,7 @@ export type Expression = {
 
 export type GroupedExpression = {
   subject: string;
-  operator: ComparisonOperator;
+  operator: LogicalOperator;
   values: Exclude<ReturnType<typeof deserializeValue>, Expression>[];
 };
 
@@ -32,128 +32,134 @@ export function deserialize(input: string | null): Expression | null {
 
   const substitutions: Map<string, Expression> = new Map();
 
-  return parseFragment(input);
-
   function parseFragment(input: string): Expression {
-    const matchSub = input.match(/^Sub_(\d+)$/);
-    if (matchSub) {
-      const matchingSub = substitutions.get(input);
-      if (!matchingSub) {
-        throw new Error("Symbol not found");
-      }
+    input = input.trim();
 
-      return matchingSub;
+    // Check if input is a substitution key and return the stored expression
+    const substitutionMatch = input.match(/^Sub_(\d+)$/);
+    if (substitutionMatch) {
+      const substitutionKey = substitutionMatch[0];
+      const expression = substitutions.get(substitutionKey);
+      if (!expression) {
+        throw new Error(
+          `No expression found for substitution key: ${substitutionKey}`
+        );
+      }
+      return expression;
     }
 
-    if (input.includes("(")) {
-      let filter = input;
-      while (filter.includes("(")) {
-        let i = 0;
-        let leftParenIndex = 0;
-        let isInsideQuotes = false;
+    // Handle nested expressions within parentheses
+    function extractParenthesesExpression(str: string): string {
+      let depth = 0;
+      let inQuotes = false;
+      let startIndex = -1;
 
-        for (i = 0; i <= filter.length; i++) {
-          if (i === filter.length) {
-            throw new Error("Unmatched parens");
-          }
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === "'" && (i === 0 || str[i - 1] !== "\\")) {
+          inQuotes = !inQuotes;
+        }
+        if (inQuotes) continue;
 
-          const cursor = filter[i];
-          if (cursor === "'") {
-            isInsideQuotes = !isInsideQuotes;
-            continue;
-          }
-
-          if (isInsideQuotes) {
-            continue;
-          }
-
-          if (cursor === "(") {
-            leftParenIndex = i;
-            continue;
-          }
-
-          if (cursor === ")") {
-            const filterSubstring = filter.substring(leftParenIndex + 1, i);
+        if (str[i] === "(") {
+          if (depth === 0) startIndex = i;
+          depth++;
+        } else if (str[i] === ")") {
+          depth--;
+          if (depth === 0) {
+            const innerExpression = str.substring(startIndex + 1, i);
             const key = `Sub_${substitutions.size}`;
-            substitutions.set(key, parseFragment(filterSubstring));
-            filter = [
-              filter.substring(0, leftParenIndex),
-              key.toString(),
-              filter.substring(i + 1),
-            ].join("");
-            break;
+            substitutions.set(key, parseFragment(innerExpression));
+            str = str.substring(0, startIndex) + key + str.substring(i + 1);
+            i = startIndex + key.length - 1; // Adjust index to skip the replaced segment
           }
         }
       }
-
-      return parseFragment(filter);
+      return str;
     }
 
-    const matchAnd = input.match(/^(?<left>.*?) and (?<right>.*)$/);
-    if (matchAnd && matchAnd.groups) {
-      const groups = matchAnd.groups;
+    input = extractParenthesesExpression(input);
 
-      return {
-        subject: parseFragment(groups.left),
-        operator: "and",
-        value: parseFragment(groups.right),
-      };
+    // This function will check if the character at position i in input is within quotes
+    function isInQuotes(pos: number): boolean {
+      let inQuotes = false;
+      for (let i = 0; i < pos; i++) {
+        if (input[i] === "'" && (i === 0 || input[i - 1] !== "\\")) {
+          inQuotes = !inQuotes;
+        }
+      }
+      return inQuotes;
     }
 
-    const matchOr = input.match(/^(?<left>.*?) or (?<right>.*)$/);
-    if (matchOr && matchOr.groups) {
-      const groups = matchOr.groups;
-
-      return {
-        subject: parseFragment(groups.left),
-        operator: "or",
-        value: parseFragment(groups.right),
-      };
+    // This function will check if the character at position i in input is within parentheses
+    function isInParens(pos: number): boolean {
+      let depth = 0;
+      for (let i = 0; i < pos; i++) {
+        if (input[i] === "(" && !isInQuotes(i)) {
+          depth++;
+        } else if (input[i] === ")" && !isInQuotes(i)) {
+          depth--;
+        }
+      }
+      return depth > 0;
     }
 
-    const matchNot = input.match(/^not (?<expression>.*)$/);
-    if (matchNot && matchNot.groups) {
-      const groups = matchNot.groups;
-
+    // Handle the 'not' operator
+    if (input.startsWith("not ")) {
+      const rest = input.substring(4).trim();
       return {
-        subject: parseFragment(groups.expression),
-        operator: "not",
+        subject: parseFragment(rest),
+        operator: "not" as LogicalOperator,
         value: null,
       };
     }
 
-    const matchOp = input.match(
-      /(?<subject>\w*) (?<operator>eq|gt|lt|ge|le|ne|contains|startsWith|endsWith|in) (?<value>datetimeoffset'(.*)'|\[(.*)\]|'(.*)'|[0-9]*)/
-    );
-    if (matchOp && matchOp.groups) {
-      const groups = matchOp.groups;
-      const operator = groups.operator;
-      if (!isComparison(operator)) {
-        throw new Error(`Invalid operator: ${operator}`);
+    // Split input by logical operators that are not within quotes or parentheses
+    const operators = [" and ", " or "];
+    for (let op of operators) {
+      let index = 0;
+      while ((index = input.indexOf(op, index)) !== -1) {
+        if (!isInQuotes(index) && !isInParens(index)) {
+          const left = input.substring(0, index);
+          const right = input.substring(index + op.length);
+          return {
+            subject: parseFragment(left),
+            operator: op.trim() as LogicalOperator,
+            value: parseFragment(right),
+          };
+        }
+        index += op.length;
       }
+    }
 
+    // Handle basic expressions and the 'in' operator
+    const parts = input.match(
+      /^(.+?)\s+(eq|ne|gt|lt|ge|le|contains|startsWith|endsWith|in)\s+(.+)$/
+    );
+    if (parts) {
+      const [, subject, operator, value] = parts;
       if (operator === "in") {
-        const values = groups.value
-          .slice(1, -1)
-          .split(", ")
-          .map(deserializeValue);
-        // console.log(values)
+        const values = value.startsWith("[")
+          ? value
+              .slice(1, -1)
+              .split(",")
+              .map((v) => deserializeValue(v.trim()))
+          : [deserializeValue(value)];
         return {
-          subject: groups.subject,
-          operator: operator,
+          subject,
+          operator: operator as ComparisonOperator,
           value: values,
         };
       }
-
       return {
-        subject: groups.subject,
-        operator: operator,
-        value: deserializeValue(groups.value),
+        subject,
+        operator: operator as ComparisonOperator,
+        value: deserializeValue(value),
       };
     }
-
-    throw new Error(`Invalid filter string: ${input}`);
+    throw new Error(`Invalid expression: ${input}`);
   }
+
+  return parseFragment(input);
 }
 
 export function deserializeValue(
@@ -216,7 +222,8 @@ export function getMap<T extends string>(
             typeof expression.subject === "string"
               ? expression.subject
               : (expression.subject as Expression).subject,
-          operator: (expression.subject as Expression).operator as ComparisonOperator,
+          operator: (expression.subject as Expression)
+            .operator as ComparisonOperator,
           values: expressions.map((e) => e.value),
         };
       }
@@ -237,17 +244,23 @@ export function getMap<T extends string>(
       }
 
       if (!acc[subject]) {
-        acc[subject] = {} as Partial<Record<ComparisonOperator, GroupedExpression>>;
+        acc[subject] = {} as Partial<
+          Record<ComparisonOperator, GroupedExpression>
+        >;
       }
 
       const operatorGroup = acc?.[subject]?.[cur.operator] ?? {
         subject: subject,
         operator: cur.operator,
         values: [],
-      }
+      };
 
       operatorGroup.values = Array.from(
-        new Set(operatorGroup.values.concat(cur.values as (string | number | boolean | Date | null)[]))
+        new Set(
+          operatorGroup.values.concat(
+            cur.values as (string | number | boolean | Date | null)[]
+          )
+        )
       );
 
       acc[subject]![cur.operator] = operatorGroup;
@@ -374,7 +387,9 @@ export function serialize(expression: Expression): string {
     } '${expression.value.toISOString()}'`;
   }
 
-  return `${subject} ${expression.operator} ${expression.value ? cleanSerialize(expression.value) : ''}`;
+  return `${subject} ${expression.operator} ${
+    expression.value ? cleanSerialize(expression.value) : ""
+  }`;
 
   function cleanSerialize(expression: Expression): string {
     return isLogical(expression.operator)
