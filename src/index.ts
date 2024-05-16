@@ -9,7 +9,7 @@ export type Expression = {
 
 export type GroupedExpression = {
   subject: string;
-  operator: LogicalOperator;
+  operator: Operator;
   values: Exclude<ReturnType<typeof deserializeValue>, Expression>[];
 };
 
