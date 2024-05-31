@@ -65,6 +65,18 @@ describe("parses examples", () => {
     ])
   })
 
+  test(`Items any ['value']`, (test) => {
+    const tree = deserialize(test.task.name)
+    const split = splitTree(tree, "and")
+    expect(getValuesFromMap(getMap(split))).toEqual([
+      {
+        subject: "Items",
+        operator: "any",
+        values: ["value"],
+      },
+    ])
+  })
+
   test(`Name startsWith 'Jac'`, (test) => {
     const tree = deserialize(test.task.name)
     const split = splitTree(tree, "and")

@@ -1,34 +1,45 @@
+const equalityOperators = ["eq", "ne"] as const;
+const numericalOperators = ["lt", "lte", "gt", "gte"] as const;
+const stringComparisonOperators = ["startsWith", "endsWith", "contains"] as const;
+const regexMatchingOperator = ["matches"] as const;
+const arrayComparisonOperators = ["in", "includes"] as const;
+const logicalOperators = ["and", "or", "not"] as const;
+const relationshipOperators = ['any', 'all', 'none', 'single'] as const;
+
+export type EqualityOperator = (typeof equalityOperators)[number];
+export type NumericalOperator = (typeof numericalOperators)[number];
+export type StringComparisonOperator = (typeof stringComparisonOperators)[number];
+export type RegexMatchingOperator = (typeof regexMatchingOperator)[number];
+export type ArrayComparisonOperator = (typeof arrayComparisonOperators)[number];
+export type LogicalOperator = (typeof logicalOperators)[number];
+export type RelationshipOperator = (typeof relationshipOperators)[number];
+
+export type ComparisonOperator = 
+  | EqualityOperator
+  | NumericalOperator
+  | StringComparisonOperator
+  | RegexMatchingOperator
+  | ArrayComparisonOperator
+  | RelationshipOperator;
+
+export type Operator = ComparisonOperator | LogicalOperator;
+
 export type Expression = {
   subject: Expression | string;
   operator: Operator;
-  value:
-    | Expression
-    | ReturnType<typeof deserializeValue>
-    | ReturnType<typeof deserializeValue>[];
+  value: Expression | ReturnType<typeof deserializeValue> | ReturnType<typeof deserializeValue>[];
 };
 
 export type GroupedExpression = {
   subject: string;
   operator: Operator;
-  values: Exclude<ReturnType<typeof deserializeValue>, Expression>[];
+  values: Exclude<ReturnType<typeof deserializeValue>, Expression | GroupedExpression>[];
 };
 
-export type LogicalOperator = "and" | "or" | "not";
-export type ComparisonOperator =
-  | "eq"
-  | "gt"
-  | "lt"
-  | "ge"
-  | "le"
-  | "ne"
-  | "contains"
-  | "startsWith"
-  | "endsWith"
-  | "in";
-export type Operator = LogicalOperator | ComparisonOperator;
-
-export function deserialize(input: string | null): Expression | null {
-  if (!input) return null;
+export function deserialize(input: string): Expression | null {
+  if (input === undefined || input === null || input === "") {
+    return null;
+  }
 
   const substitutions: Map<string, Expression> = new Map();
 
@@ -41,9 +52,7 @@ export function deserialize(input: string | null): Expression | null {
       const substitutionKey = substitutionMatch[0];
       const expression = substitutions.get(substitutionKey);
       if (!expression) {
-        throw new Error(
-          `No expression found for substitution key: ${substitutionKey}`
-        );
+        throw new Error(`No expression found for substitution key: ${substitutionKey}`);
       }
       return expression;
     }
@@ -133,11 +142,11 @@ export function deserialize(input: string | null): Expression | null {
 
     // Handle basic expressions and the 'in' operator
     const parts = input.match(
-      /^(.+?)\s+(eq|ne|gt|lt|ge|le|contains|startsWith|endsWith|in)\s+(.+)$/
+      /^(.+?)\s+(eq|ne|gt|lt|gte|lte|contains|startsWith|endsWith|in|matches|includes|any|all|none|single)\s+(.+)$/
     );
     if (parts) {
       const [, subject, operator, value] = parts;
-      if (operator === "in") {
+      if (arrayComparisonOperators.includes(operator as ArrayComparisonOperator)) {
         const values = value.startsWith("[")
           ? value
               .slice(1, -1)
@@ -146,13 +155,28 @@ export function deserialize(input: string | null): Expression | null {
           : [deserializeValue(value)];
         return {
           subject,
-          operator: operator as ComparisonOperator,
+          operator: operator as ArrayComparisonOperator,
           value: values,
         };
       }
+
+      if (relationshipOperators.includes(operator as RelationshipOperator)) {
+        const values = value.startsWith("[")
+          ? value
+              .slice(1, -1)
+              .split(",")
+              .map((v) => deserializeValue(v.trim()))
+          : [deserializeValue(value)];
+        return {
+          subject,
+          operator: operator as RelationshipOperator,
+          value: values,
+        };
+      }
+
       return {
         subject,
-        operator: operator as ComparisonOperator,
+        operator: operator as Exclude<Operator, ArrayComparisonOperator | RelationshipOperator>,
         value: deserializeValue(value),
       };
     }
@@ -162,33 +186,29 @@ export function deserialize(input: string | null): Expression | null {
   return parseFragment(input);
 }
 
-export function deserializeValue(
-  value: string
-): string | number | boolean | Date | null {
-  if (value.startsWith("'") && value.endsWith("'")) {
-    return value.substring(1, value.length - 1);
+export function deserializeValue(value: string): string | number | boolean | Date | null | undefined {
+  if (value === undefined || value === null || value === "") {
+    return null;
   }
-
-  if (/^-?\d+$/.test(value)) {
+  if (value.startsWith("'") && value.endsWith("'")) {
+    return value.slice(1, -1);
+  }
+  if (!isNaN(Number(value))) {
     return Number(value);
   }
-
   if (value === "true") {
     return true;
   }
-
   if (value === "false") {
     return false;
   }
-
   const match = value.match(/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/);
   if (match && match.groups) {
     const { year, month, day } = match.groups;
     const date = new Date(`${year}-${month}-${day}`);
     return date;
   }
-
-  return null;
+  return value;
 }
 export function getMap<T extends string>(
   expressions: ReadonlyArray<Expression>,
@@ -200,85 +220,124 @@ export function getMap<T extends string>(
     return keys.includes(value as T);
   }
 
-  return expressions
-    .map((expression) => {
-      if (isLogical(expression.operator)) {
-        const expressions = splitTree(expression, expression.operator);
-
-        const uniqueSubjects = new Set(expressions.map((e) => e.subject));
-        if (uniqueSubjects.size !== 1) {
-          throw new Error("Cannot map logical operator with multiple subjects");
-        }
-
-        const uniqueOperators = new Set(expressions.map((e) => e.operator));
-        if (uniqueOperators.size !== 1) {
-          throw new Error(
-            "Cannot map logical operator with multiple operators"
-          );
-        }
-
-        return {
-          subject:
-            typeof expression.subject === "string"
-              ? expression.subject
-              : (expression.subject as Expression).subject,
-          operator: (expression.subject as Expression)
-            .operator as ComparisonOperator,
-          values: expressions.map((e) => e.value),
-        };
+  function flattenExpressions(expressions: Expression[]): Expression[] {
+    return expressions.reduce((acc, expr) => {
+      if (expr.operator === "and" || expr.operator === "or") {
+        return [...acc, ...flattenExpressions([expr.subject as Expression, expr.value as Expression])];
       }
+      return [...acc, expr];
+    }, [] as Expression[]);
+  }
 
-      return {
-        subject: expression.subject,
-        operator: expression.operator as ComparisonOperator,
-        values: Array.isArray(expression.value)
-          ? expression.value
-          : [expression.value],
-      };
-    })
-    .reduce((acc, cur) => {
-      const subject = cur.subject;
+  const flattenedExpressions = flattenExpressions([...expressions]);
 
-      if (typeof subject !== "string" || !isKey(subject)) {
-        throw new Error(`Subject "${subject}" does not match ${keys}`);
-      }
+  return flattenedExpressions.reduce((acc, expression) => {
+    const subject = typeof expression.subject === "string" ? expression.subject : JSON.stringify(expression.subject);
+    
+    if (!isKey(subject)) {
+      throw new Error(`Subject "${JSON.stringify(subject)}" does not match ${keys}`);
+    }
 
-      if (!acc[subject]) {
-        acc[subject] = {} as Partial<
-          Record<ComparisonOperator, GroupedExpression>
-        >;
-      }
+    if (!acc[subject]) {
+      acc[subject] = {};
+    }
 
-      const operatorGroup = acc?.[subject]?.[cur.operator] ?? {
+    // Ensure the operator is correctly nested under the subject
+    if (!acc[subject]?.[expression.operator as ComparisonOperator]) {
+      acc[subject]![expression.operator as ComparisonOperator] = {
         subject: subject,
-        operator: cur.operator,
+        operator: expression.operator as ComparisonOperator,
         values: [],
       };
+    }
 
-      operatorGroup.values = Array.from(
-        new Set(
-          operatorGroup.values.concat(
-            cur.values as (string | number | boolean | Date | null)[]
-          )
-        )
-      );
+    const operatorGroup = acc[subject]![expression.operator as ComparisonOperator];
 
-      acc[subject]![cur.operator] = operatorGroup;
+    // Accumulate values instead of overwriting
+    if (Array.isArray(expression.value)) {
+      operatorGroup!.values.push(...expression.value);
+    } else {
+      if (typeof expression.value !== 'object' || expression.value instanceof Date) {
+        operatorGroup!.values.push(expression.value);
+      } else {
+        throw new Error(`Invalid value type: ${typeof expression.value}`);
+      }
+    }
 
-      return acc;
-    }, {} as Partial<Record<T, Partial<Record<ComparisonOperator, GroupedExpression>>>>);
+    return acc;
+  }, {} as Partial<Record<T, Partial<Record<ComparisonOperator, GroupedExpression>>>>);
 }
+
 export function getValuesFromMap(
-  tree: Partial<
-    Record<string, Partial<Record<ComparisonOperator, GroupedExpression>>>
-  >
+  tree: Partial<Record<string, Partial<Record<ComparisonOperator, GroupedExpression>>>>
 ): GroupedExpression[] {
-  return Object.values(tree).reduce((acc, cur) => {
+  
+  function flattenGroupedExpressions(groups: GroupedExpression[]): GroupedExpression[] {
+    return groups.reduce((acc, group) => {
+      const nestedGroups = group.values.filter(
+        (v) => typeof v === 'object' && v !== null && 'subject' in v && 'operator' in v && 'values' in v
+      );
+      return [...acc, ...flattenGroupedExpressions(nestedGroups as any), group];
+    }, [] as GroupedExpression[]);
+  }
+
+  const groupedExpressions = Object.values(tree).reduce((acc, cur) => {
     if (cur) {
       return acc.concat(Object.values(cur));
     }
     return acc;
   }, [] as GroupedExpression[]);
+
+  return flattenGroupedExpressions(groupedExpressions);
+}
+
+export function serialize(expression: Expression, isNested: boolean = false): string {
+  if (expression.operator === "not") {
+    return `not ${serialize(expression.subject as Expression, true)}`;
+  }
+
+  if (logicalOperators.includes(expression.operator as LogicalOperator)) {
+    const subject = serialize(expression.subject as Expression, true);
+    const value = serialize(expression.value as Expression, true);
+    const result = `${subject} ${expression.operator} ${value}`;
+    return isNested ? `(${result})` : result;
+  }
+
+  const subject =
+    typeof expression.subject === "string"
+      ? expression.subject
+      : serialize(expression.subject, true); // Recursively serialize nested expressions
+
+  if (!expression.value && expression.operator as any !== "not") {
+    throw new Error("Invalid expression value");
+  }
+
+  if (expression.operator === "in") {
+    return `${subject} ${expression.operator} [${(expression.value as any[])
+      .map((v: any) => serializeValue(v))
+      .join(", ")}]`;
+  }
+
+  if (Array.isArray(expression.value)) {
+    return `${subject} ${expression.operator} [${(expression.value as any[])
+      .map((v: any) => serializeValue(v))
+      .join(", ")}]`;
+  }
+
+  return `${subject} ${expression.operator} ${serializeValue(expression.value)}`;
+
+  function serializeValue(value: any): string {
+    if (typeof value === "string") {
+      return `'${value}'`;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return `${value}`;
+    }
+    if (value instanceof Date) {
+      return `'${value.toISOString()}'`;
+    }
+    return `${value}`;
+  }
 }
 
 export function ungroupValues(
@@ -295,29 +354,64 @@ export function ungroupValues(
     return joinTree(expressions, operator);
   });
 }
-const logicalOperators: LogicalOperator[] = ["and", "or", "not"];
-const comparisonOperators: ComparisonOperator[] = [
-  "eq",
-  "gt",
-  "ge",
-  "lt",
-  "le",
-  "ne",
-  "in",
-  "contains",
-  "startsWith",
-  "endsWith",
-];
 
 export function isLogical(op: string): op is LogicalOperator {
-  return (logicalOperators as string[]).includes(op);
-}
-export function isComparison(op: string): op is ComparisonOperator {
-  return (comparisonOperators as string[]).includes(op);
+  return logicalOperators.includes(op as LogicalOperator);
 }
 
-export function isOperator(op: string): op is Operator {
-  return isLogical(op) || isComparison(op);
+export function isComparison(op: string): op is ComparisonOperator {
+  return [
+    ...equalityOperators,
+    ...numericalOperators,
+    ...stringComparisonOperators,
+    ...regexMatchingOperator,
+    ...arrayComparisonOperators,
+    ...relationshipOperators,
+  ].includes(op as ComparisonOperator);
+}
+
+export function splitTree(
+  expression: Expression | null,
+  operator: LogicalOperator
+): Expression[] {
+  if (!expression) return [];
+  if (expression.operator === "not") {
+    return [
+      {
+        subject: expression.subject as Expression, // Keep the subject as a single expression
+        operator: "not",
+        value: null,
+      },
+    ];
+  }
+  if (expression.operator === operator) {
+    const subjectExpressions =
+      typeof expression.subject === "string"
+        ? []
+        : splitTree(expression.subject, operator);
+    const valueExpressions =
+      typeof expression.value === "object" &&
+      expression.value !== null &&
+      "operator" in expression.value
+        ? splitTree(expression.value, operator)
+        : [];
+    return [...subjectExpressions, ...valueExpressions];
+  }
+  return [expression];
+}
+export function joinTree(
+  expressions: Expression[],
+  operator: LogicalOperator
+): Expression {
+  if (expressions.length === 1) {
+    return expressions[0];
+  }
+  const [first, ...rest] = expressions;
+  return {
+    subject: first,
+    operator,
+    value: joinTree(rest, operator),
+  };
 }
 
 export function parse<T extends string>(
@@ -338,98 +432,4 @@ export function parse<T extends string>(
   const map = getMap(tree, keys);
 
   return map;
-}
-
-export function stringify(
-  groupedValues: Array<GroupedExpression>,
-  options: { operator?: LogicalOperator; subOperator?: LogicalOperator } = {}
-): string {
-  const ungrouped = ungroupValues(groupedValues, options.subOperator || "or");
-  const joined = joinTree(ungrouped, options.operator || "and");
-  return serialize(joined);
-}
-
-export function serialize(expression: Expression): string {
-  const subject =
-    typeof expression.subject === "string"
-      ? expression.subject
-      : cleanSerialize(expression.subject);
-
-  if (!expression.value && expression.operator !== "not") {
-    throw new Error("Invalid expression value");
-  }
-
-  if (Array.isArray(expression.value)) {
-    return `${subject} ${expression.operator} [${expression.value
-      .map((v) => (typeof v === "string" ? `'${v}'` : v))
-      .join(", ")}]`;
-  }
-
-  if (expression.operator === "not") {
-    return `not ${serialize(expression.subject as Expression)}`;
-  }
-
-  if (typeof expression.value === "string") {
-    return `${subject} ${expression.operator} '${expression.value}'`;
-  }
-
-  if (typeof expression.value === "number") {
-    return `${subject} ${expression.operator} ${expression.value}`;
-  }
-
-  if (typeof expression.value === "boolean") {
-    return `${subject} ${expression.operator} ${expression.value}`;
-  }
-
-  if (expression.value instanceof Date) {
-    return `${subject} ${
-      expression.operator
-    } '${expression.value.toISOString()}'`;
-  }
-
-  return `${subject} ${expression.operator} ${
-    expression.value ? cleanSerialize(expression.value) : ""
-  }`;
-
-  function cleanSerialize(expression: Expression): string {
-    return isLogical(expression.operator)
-      ? `(${serialize(expression)})`
-      : serialize(expression);
-  }
-}
-
-export function splitTree(
-  expression: Expression | null,
-  operator: LogicalOperator
-): Expression[] {
-  if (!expression) return [];
-  if (expression.operator === operator) {
-    const subjectExpressions =
-      typeof expression.subject === "string"
-        ? []
-        : splitTree(expression.subject, operator);
-    const valueExpressions =
-      typeof expression.value === "object" &&
-      expression.value !== null &&
-      "operator" in expression.value
-        ? splitTree(expression.value, operator)
-        : [];
-    return [...subjectExpressions, ...valueExpressions];
-  }
-  return [expression];
-}
-
-export function joinTree(
-  expressions: Expression[],
-  operator: LogicalOperator
-): Expression {
-  if (expressions.length === 1) {
-    return expressions[0];
-  }
-  const [first, ...rest] = expressions;
-  return {
-    subject: first,
-    operator,
-    value: joinTree(rest, operator),
-  };
 }

@@ -11,10 +11,42 @@ test("throws error for invalid input", () => {
   expect(() => deserialize("Jacob")).toThrow()
 })
 
-test.each(["eq", "ne", "gt", "ge", "lt", "le"])(
+test.each(["eq", "ne", "gt", "gte", "lt", "lte"])(
   "supports %s operator",
   (operator) => {
     const result = deserialize(`Age ${operator} 30`)
+    expect(result?.operator).toEqual(operator)
+  }
+)
+
+test.each(["startsWith", "endsWith", "contains"])(
+  "supports %s operator",
+  (operator) => {
+    const result = deserialize(`Name ${operator} 'Jac'`)
+    expect(result?.operator).toEqual(operator)
+    expect(result?.value).toEqual("Jac")
+  }
+)
+
+test("supports matches operator", () => {
+  const result = deserialize(`Name matches '^Jac'`)
+  expect(result?.operator).toEqual("matches")
+  expect(result?.value).toEqual("^Jac")
+})
+
+test.each(["in", "includes"])(
+  "supports %s operator",
+  (operator) => {
+    const result = deserialize(`Name ${operator} ['Jacob', 'John']`)
+    expect(result?.operator).toEqual(operator)
+    expect(result?.value).toEqual(["Jacob", "John"])
+  }
+)
+
+test.each(["and", "or"])(
+  "supports logical %s operator",
+  (operator) => {
+    const result = deserialize(`Name eq 'Jacob' ${operator} Age eq 30`)
     expect(result?.operator).toEqual(operator)
   }
 )
@@ -109,8 +141,8 @@ describe("parses examples", () => {
     })
   })
 
-  test(`Name contains 'Jac'`, () => {
-    expect(deserialize("Name contains 'Jac'")).toEqual({
+  test(`Name contains 'Jac'`, (test) => {
+    expect(deserialize(test.task.name)).toEqual({
       subject: "Name",
       operator: "contains",
       value: "Jac",

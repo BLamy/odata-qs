@@ -76,6 +76,22 @@ describe("parses examples", () => {
     })
   })
 
+  test(`Items any ['value']`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Items",
+        operator: "any",
+        value: ["value"],
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Items",
+      operator: "any",
+      value: ["value"],
+    })
+  })
+
   test(`Name eq 'Jacob' and (Age eq 30 or Age eq 40)`, () => {
     const split: Array<Expression> = [
       {
@@ -193,19 +209,133 @@ describe("parses examples", () => {
     })
   })
 
-  // test(`Name in ['Jacob', 'John']`, () => {
-  //   const split: Array<Expression> = [
-  //     {
-  //       subject: "Name",
-  //       operator: "in",
-  //       value: ["Jacob", "John"],
-  //     },
-  //   ];
+  test(`Name in ['Jacob', 'John']`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "in",
+        value: ["Jacob", "John"],
+      },
+    ]
 
-  //   expect(joinTree(split, "and")).toEqual({
-  //     subject: "Name",
-  //     operator: "in",
-  //     value: ["Jacob", "John"],
-  //   });
-  // });
-})
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "in",
+      value: ["Jacob", "John"],
+    })
+  })
+
+  test(`Age lt 30`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Age",
+        operator: "lt",
+        value: 30,
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Age",
+      operator: "lt",
+      value: 30,
+    })
+  })
+
+  test(`Age lte 30`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Age",
+        operator: "lte",
+        value: 30,
+      },
+    ]
+
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Age",
+      operator: "lte",
+      value: 30,
+    })
+  })
+
+  test(`Age gt 30`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Age",
+        operator: "gt",
+        value: 30,
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Age",
+      operator: "gt",
+      value: 30,
+    })
+  })
+  
+  test(`Age gte 30`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Age",
+        operator: "gte",
+        value: 30,
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Age",
+      operator: "gte",
+      value: 30,
+    })
+  })
+  
+  test(`Name matches '^Jac'`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "matches",
+        value: "^Jac",
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "matches",
+      value: "^Jac",
+    })
+  })
+  
+  test(`Name includes 'John'`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "includes",
+        value: "John",
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "includes",
+      value: "John",
+    })
+  })
+  
+  test(`Name in ['Jacob', 'John']`, () => {
+    const split: Array<Expression> = [
+      {
+        subject: "Name",
+        operator: "in",
+        value: ["Jacob", "John"],
+      },
+    ]
+  
+    expect(joinTree(split, "and")).toEqual({
+      subject: "Name",
+      operator: "in",
+      value: ["Jacob", "John"],
+    })
+  })       
+})       
+
+  
